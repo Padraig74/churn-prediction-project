@@ -1,0 +1,79 @@
+# Import required packages
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_auc_score
+from matplotlib import pyplot as plt
+import seaborn as sns
+%matplotlib inline
+# Load the datasets
+train_df = pd.read_csv("train.csv")
+test_df = pd.read_csv("test.csv")
+
+# Display the shape and first few rows of the training data
+print('train_df Shape:', train_df.shape)
+print(train_df.head())
+
+# Display the shape and first few rows of the test data
+print('test_df Shape:', test_df.shape)
+print(test_df.head())
+# Data preprocessing
+# Encode categorical features
+categorical_features = ['SubscriptionType', 'PaymentMethod', 'PaperlessBilling', 'ContentType', 
+                        'MultiDeviceAccess', 'DeviceRegistered', 'GenrePreference', 'Gender', 
+                        'ParentalControl', 'SubtitlesEnabled']
+
+for feature in categorical_features:
+    le = LabelEncoder()
+    train_df[feature] = le.fit_transform(train_df[feature])
+    test_df[feature] = le.transform(test_df[feature])
+
+# Normalize numerical features
+numerical_features = ['AccountAge', 'MonthlyCharges', 'TotalCharges', 'ViewingHoursPerWeek', 
+                      'AverageViewingDuration', 'ContentDownloadsPerMonth', 'UserRating', 
+                      'SupportTicketsPerMonth', 'WatchlistSize']
+
+scaler = StandardScaler()
+train_df[numerical_features] = scaler.fit_transform(train_df[numerical_features])
+test_df[numerical_features] = scaler.transform(test_df[numerical_features])
+# Split the training data
+X = train_df.drop(['CustomerID', 'Churn'], axis=1)
+y = train_df['Churn']
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train a model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Validate the model (optional)
+y_val_pred = model.predict_proba(X_val)[:, 1]
+val_auc = roc_auc_score(y_val, y_val_pred)
+print(f'Validation AUC: {val_auc}')
+
+# Make predictions on the test set
+X_test = test_df.drop(['CustomerID'], axis=1)
+predicted_probability = model.predict_proba(X_test)[:, 1]
+
+# Prepare the submission DataFrame
+prediction_df = pd.DataFrame({
+    'CustomerID': test_df['CustomerID'],
+    'predicted_probability': predicted_probability
+})
+
+# View our 'prediction_df' dataframe as required for submission.
+# Ensure it should contain 104,480 rows and 2 columns 'CustomerID' and 'predicted_probability'
+print(prediction_df.shape)
+print(prediction_df.head(10))
+
+# Save the predictions to a CSV file
+prediction_df.to_csv("prediction_submission.csv", index=False)
+# Writing to csv for autograding purposes
+submission = pd.read_csv("prediction_submission.csv")
+
+assert isinstance(submission, pd.DataFrame), 'You should have a dataframe named prediction_df.'
+assert submission.columns[0] == 'CustomerID', 'The first column name should be CustomerID.'
+assert submission.columns[1] == 'predicted_probability', 'The second column name should be predicted_probability.'
+assert submission.shape[0] == 104480, 'The dataframe prediction_df should have 104480 rows.'
+assert submission.shape[1] == 2, 'The dataframe prediction_df should have 2 columns.'
